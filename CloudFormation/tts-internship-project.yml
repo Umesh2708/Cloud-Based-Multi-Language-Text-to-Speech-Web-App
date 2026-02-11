@@ -1,0 +1,106 @@
+AWSTemplateFormatVersion: '2010-09-09'
+Description: >
+  CloudFormation stack for Serverless Text-to-Speech app.
+  Creates S3 bucket, Lambda function from ZIP in S3, API Gateway, and IAM role.
+
+Parameters:
+  LambdaCodeBucket:
+    Type: String
+    Description: "S3 bucket where Lambda ZIP file is uploaded"
+
+  LambdaCodeKey:
+    Type: String
+    Description: "S3 key (file name) of Lambda ZIP file"
+
+Resources:
+
+  # S3 bucket to store generated MP3 files
+  TTSS3Bucket:
+    Type: AWS::S3::Bucket
+    Properties:
+      BucketName: "tts-bucket-11022026"
+      LifecycleConfiguration:
+        Rules:
+          - Status: Enabled
+            ExpirationInDays: 1  # Auto-delete files after 1 day
+
+  # IAM role for Lambda
+  TTSLambdaRole:
+    Type: AWS::IAM::Role
+    Properties:
+      RoleName: "tts-bucket-11022026-LambdaRole"
+      AssumeRolePolicyDocument:
+        Version: '2012-10-17'
+        Statement:
+          - Effect: Allow
+            Principal:
+              Service: lambda.amazonaws.com
+            Action: sts:AssumeRole
+      ManagedPolicyArns:
+        - arn:aws:iam::aws:policy/AmazonS3FullAccess
+        - arn:aws:iam::aws:policy/AmazonPollyFullAccess
+        - arn:aws:iam::aws:policy/service-role/AWSLambdaBasicExecutionRole
+
+  # Lambda function
+  TTSTextToSpeechLambda:
+    Type: AWS::Lambda::Function
+    Properties:
+      FunctionName: "tts-bucket-11022026-TTSLambda"
+      Runtime: python3.11
+      Handler: lambda_function.lambda_handler
+      Role: !GetAtt TTSLambdaRole.Arn
+      Timeout: 30
+      MemorySize: 128
+      Code:
+        S3Bucket: !Ref LambdaCodeBucket   # Parameter reference
+        S3Key: !Ref LambdaCodeKey         # Parameter reference
+
+  # API Gateway
+  TTSTTSApi:
+    Type: AWS::ApiGatewayV2::Api
+    Properties:
+      Name: "tts-bucket-11022026-TTSAPI"
+      ProtocolType: HTTP
+
+  # Integration Lambda -> API
+  LambdaApiIntegration:
+    Type: AWS::ApiGatewayV2::Integration
+    Properties:
+      ApiId: !Ref TTSTTSApi
+      IntegrationType: AWS_PROXY
+      IntegrationUri: !Sub "arn:aws:apigateway:${AWS::Region}:lambda:path/2015-03-31/functions/${TTSTextToSpeechLambda.Arn}/invocations"
+      PayloadFormatVersion: "2.0"
+
+  # POST /tts route
+  ApiRoute:
+    Type: AWS::ApiGatewayV2::Route
+    Properties:
+      ApiId: !Ref TTSTTSApi
+      RouteKey: "POST /tts"
+      Target: !Sub "integrations/${LambdaApiIntegration}"
+
+  # Stage
+  ApiStage:
+    Type: AWS::ApiGatewayV2::Stage
+    Properties:
+      ApiId: !Ref TTSTTSApi
+      StageName: prod
+      AutoDeploy: true
+
+  # Lambda permission for API Gateway
+  LambdaPermission:
+    Type: AWS::Lambda::Permission
+    Properties:
+      FunctionName: !Ref TTSTextToSpeechLambda
+      Action: lambda:InvokeFunction
+      Principal: apigateway.amazonaws.com
+      SourceArn: !Sub "arn:aws:execute-api:${AWS::Region}:${AWS::AccountId}:${TTSTTSApi}/*/*"
+
+Outputs:
+  ApiEndpoint:
+    Description: "API Gateway endpoint URL for TTS"
+    Value: !Sub "https://${TTSTTSApi}.execute-api.${AWS::Region}.amazonaws.com/prod/tts"
+
+  S3BucketName:
+    Description: "S3 bucket name storing audio files"
+    Value: "tts-bucket-11022026"
