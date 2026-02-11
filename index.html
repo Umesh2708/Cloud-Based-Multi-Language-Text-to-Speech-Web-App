@@ -1,0 +1,200 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Cloud TTS Web App</title>
+    <style>
+        :root {
+            --primary-color: #6366f1;
+            --primary-hover: #4f46e5;
+            --bg-color: #0f172a;
+            --card-bg: #1e293b;
+            --text-main: #f8fafc;
+            --text-muted: #94a3b8;
+        }
+
+        body { 
+            font-family: 'Inter', -apple-system, sans-serif; 
+            background-color: var(--bg-color);
+            color: var(--text-main);
+            display: flex;
+            justify-content: center;
+            align-items: center;
+            min-height: 100vh;
+            margin: 0;
+        }
+
+        .container {
+            background: var(--card-bg);
+            padding: 2.5rem;
+            border-radius: 16px;
+            box-shadow: 0 10px 25px rgba(0,0,0,0.3);
+            width: 100%;
+            max-width: 450px;
+        }
+
+        h2 { 
+            margin-top: 0; 
+            font-weight: 700;
+            letter-spacing: -0.025em;
+            color: var(--text-main);
+            text-align: center;
+        }
+
+        .input-group {
+            margin-bottom: 1.5rem;
+        }
+
+        label {
+            display: block;
+            margin-bottom: 0.5rem;
+            font-size: 0.875rem;
+            font-weight: 500;
+            color: var(--text-muted);
+        }
+
+        select, textarea { 
+            width: 100%; 
+            padding: 12px;
+            border-radius: 8px;
+            border: 1px solid #334155;
+            background: #0f172a;
+            color: white;
+            font-size: 1rem;
+            box-sizing: border-box;
+            outline: none;
+            transition: border 0.2s;
+        }
+
+        select:focus, textarea:focus {
+            border-color: var(--primary-color);
+        }
+
+        textarea { 
+            height: 120px; 
+            resize: none;
+            line-height: 1.5;
+        }
+
+        button { 
+            width: 100%;
+            padding: 14px;
+            background-color: var(--primary-color);
+            color: white;
+            border: none;
+            border-radius: 8px;
+            font-size: 1rem;
+            font-weight: 600;
+            cursor: pointer;
+            transition: background 0.2s, transform 0.1s;
+        }
+
+        button:hover { background-color: var(--primary-hover); }
+        button:active { transform: scale(0.98); }
+
+        #status {
+            font-size: 0.875rem;
+            margin-top: 1rem;
+            text-align: center;
+            color: var(--text-muted);
+            min-height: 1.2rem;
+        }
+
+        audio { 
+            width: 100%; 
+            margin-top: 1.5rem;
+            filter: invert(100%) hue-rotate(180deg) brightness(1.5); /* Modern dark look for audio player */
+        }
+    </style>
+</head>
+<body>
+
+    <div class="container">
+        <h2>TTS Generator</h2>
+
+        <div class="input-group">
+            <label for="language">Language</label>
+            <select id="language" onchange="updateVoices()">
+                <option value="en-US">English (US)</option>
+                <option value="hi-IN">Hindi (IN)</option>
+                <option value="fr-FR">French (FR)</option>
+                <option value="es-ES">Spanish (ES)</option>
+            </select>
+        </div>
+
+        <div class="input-group">
+            <label for="voice">Voice Personality</label>
+            <select id="voice"></select>
+        </div>
+
+        <div class="input-group">
+            <label for="text">Message</label>
+            <textarea id="text" placeholder="Type what you want the AI to say..."></textarea>
+        </div>
+
+        <button onclick="generateTTS()">Generate Speech</button>
+
+        <p id="status"></p>
+        <audio id="audio" controls></audio>
+    </div>
+
+    <script>
+        const voices = {
+            "en-US": ["Joanna", "Matthew", "Ivy", "Justin"],
+            "hi-IN": ["Aditi", "Raveena"],
+            "fr-FR": ["Celine", "Mathieu"],
+            "es-ES": ["Lucia", "Enrique"]
+        };
+
+        function updateVoices() {
+            const lang = document.getElementById("language").value;
+            const voiceSelect = document.getElementById("voice");
+            voiceSelect.innerHTML = "";
+            voices[lang].forEach(v => {
+                const option = document.createElement("option");
+                option.value = v;
+                option.text = v;
+                voiceSelect.appendChild(option);
+            });
+        }
+
+        window.onload = updateVoices;
+
+        async function generateTTS() {
+            const text = document.getElementById("text").value;
+            const voice = document.getElementById("voice").value;
+            const status = document.getElementById("status");
+            const audio = document.getElementById("audio");
+
+            if (!text) {
+                status.innerText = "⚠️ Please enter some text!";
+                return;
+            }
+
+            status.innerText = "⏳ Processing your audio...";
+
+            try {
+                const response = await fetch("https://jpqojc4peh.execute-api.us-east-1.amazonaws.com/prod/tts", {
+                    method: "POST",
+                    headers: { "Content-Type": "application/json" },
+                    body: JSON.stringify({ text: text, voice: voice })
+                });
+
+                const data = await response.json();
+                if (data.audio_url) {
+                    audio.src = data.audio_url;
+                    status.innerText = "✅ Generation complete!";
+                    audio.play(); // Auto-play for a smoother experience
+                } else {
+                    status.innerText = "❌ Error: " + (data.error || "Unknown error");
+                }
+            } catch (err) {
+                status.innerText = "❌ Connection failed.";
+                console.error(err);
+            }
+        }
+    </script>
+</body>
+
+</html>
