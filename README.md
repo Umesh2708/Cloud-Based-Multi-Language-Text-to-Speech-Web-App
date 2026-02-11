@@ -102,7 +102,7 @@ Then complete the stack creation.
  **CloudFormation → Stack → Outputs**
 
 2. Copy the API endpoint (example format):
-        https://xxxx.execute-api.<region>.amazonaws.com/prod/tts
+        https://xxxx.execute-api<region>.amazonaws.com/prod/tts
 
 ✅ Important:
 - Resource path is:  
