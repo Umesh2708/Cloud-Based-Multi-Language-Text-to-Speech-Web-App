@@ -204,5 +204,5 @@ Before running the project, ensure:
 ## 👨‍💻 Author
 
 **Umesh Saini**  
-Cloud Computing Internship Project  
+AWS Project  
 2026
